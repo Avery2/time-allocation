@@ -1,0 +1,309 @@
+	
+---
+title: "Untitled"
+author: "Avery Chan"
+date: "4/11/2022"
+output: html_document
+---
+
+```{r}
+# -- Load data
+
+library(brms)
+
+#read in small-scale data
+fpath = ...
+source(paste0(fpath, "pre-processing/load_tap.r"))
+
+#OECD ; ages 15-64, full year
+library(readxl)
+read_excel_allsheets <- function(filename) {
+  sheets <- readxl::excel_sheets(filename)
+  x <-
+    lapply(sheets, function(X)
+      readxl::read_excel(filename, sheet = X))
+  names(x) <- sheets
+  x
+}
+
+fpath_data = paste0(fpath, "data/")
+oecdt <- function(female) {
+  datoecd <-
+    read_excel_allsheets(paste0(fpath_data, "OECD_1564_TUSupdatePortal.xls"))
+  if (female) {
+    datoecd <-
+      datoecd[[4]]
+  } else {
+    datoecd <- datoecd[[3]]
+  } #women or men
+  datoecd[7, -(1:2)][is.na(as.numeric(datoecd[7, -(1:2)]))] = 0 #change nas to 0; ignore NA warnings
+  datoecd[32, -(1:2)][is.na(as.numeric(datoecd[32, -(1:2)]))] = 0 #change nas to 0; ignore NA warnings
+  oecdtime = data.frame(
+    Society = as.character(datoecd[1, -(1:2)]),
+    WORK_W = as.numeric(datoecd[3, -(1:2)]) / 60 + as.numeric(datoecd[10, -(1:2)]) /
+      60,
+    WORK_WX = as.numeric(datoecd[3, -(1:2)]) / 60 + as.numeric(datoecd[10, -(1:2)]) /
+      60 + as.numeric(datoecd[32, -(1:2)]) / 60,
+    COMM_C = as.numeric(datoecd[3, -(1:2)]) / 60 - as.numeric(datoecd[6, -(1:2)]) /
+      60 - as.numeric(datoecd[7, -(1:2)]) / 60 - (as.numeric(datoecd[5, -(1:2)]) /
+                                                    60) * (as.numeric(datoecd[6, -(1:2)]) / 60 + as.numeric(datoecd[7, -(1:2)]) /
+                                                             60) / (
+                                                               as.numeric(datoecd[5, -(1:2)]) / 60 + as.numeric(datoecd[6, -(1:2)]) / 60 + as.numeric(datoecd[7, -(1:2)]) /
+                                                                 60
+                                                             ) + as.numeric(datoecd[12, -(1:2)]) / 60,
+    COMM_CE = as.numeric(datoecd[3, -(1:2)]) / 60 + as.numeric(datoecd[12, -(1:2)]) /
+      60,
+    COMM_CX = as.numeric(datoecd[3, -(1:2)]) / 60 - as.numeric(datoecd[6, -(1:2)]) /
+      60 - as.numeric(datoecd[7, -(1:2)]) / 60 - (as.numeric(datoecd[5, -(1:2)]) /
+                                                    60) * (as.numeric(datoecd[6, -(1:2)]) / 60 + as.numeric(datoecd[7, -(1:2)]) /
+                                                             60) / (
+                                                               as.numeric(datoecd[5, -(1:2)]) / 60 + as.numeric(datoecd[6, -(1:2)]) / 60 + as.numeric(datoecd[7, -(1:2)]) /
+                                                                 60
+                                                             ) + as.numeric(datoecd[12, -(1:2)]) / 60 + as.numeric(datoecd[32, -(1:2)]) /
+      60,
+    COMM_CXE = as.numeric(datoecd[3, -(1:2)]) / 60 + as.numeric(datoecd[12, -(1:2)]) /
+      60 + as.numeric(datoecd[32, -(1:2)]) / 60
+  )
+  #Commercial = "Paid work or study" - "time in school or classes" - "research/homework" - "travel to and from work/study" x ("time in school or classes" + "research/homework")/("paid work (all jobs)" + "time in school or classes" + "research/homework") + "shopping"
+  #Commercial + Ed = "Paid work or study" + "shopping"
+  #Commercial + Other = Commercial + "other (no categories)"
+  #Work = "Paid work or study" + "Unpaid work" - "shopping"
+  #Work + Other = Work + "other (no categories)"
+  oecdtime = subset(oecdtime,!(
+    Society %in% c(
+      "Australia",
+      "China",
+      "Hungary",
+      "Sweden",
+      "Austria",
+      "Canada",
+      "Denmark",
+      "France",
+      "India",
+      "Ireland",
+      "Japan",
+      "Korea",
+      "Mexico",
+      "Portugal",
+      "South Africa",
+      "OECD 26",
+      "NA"
+    )
+  )) #exclude these societies
+  
+  oecdtime$Total_Work = oecdtime$WORK_W * 7
+  oecdtime$Total_WorkX = oecdtime$WORK_WX * 7
+  oecdtime$Prop_Work_Comm = oecdtime$COMM_C / oecdtime$WORK_W
+  oecdtime$Prop_Work_CommE = oecdtime$COMM_CE / oecdtime$WORK_W
+  oecdtime$Prop_WorkX_Comm = oecdtime$COMM_C / oecdtime$WORK_WX
+  oecdtime$Prop_WorkX_CommE = oecdtime$COMM_CE / oecdtime$WORK_WX
+  oecdtime$Prop_WorkX_CommX = oecdtime$COMM_CX / oecdtime$WORK_WX
+  oecdtime$Prop_WorkX_CommXE = oecdtime$COMM_CXE / oecdtime$WORK_WX
+  
+  return(oecdtime[, c(
+    "Society",
+    "Total_Work",
+    "Total_WorkX",
+    "Prop_Work_Comm",
+    "Prop_Work_CommE",
+    "Prop_WorkX_Comm",
+    "Prop_WorkX_CommE",
+    "Prop_WorkX_CommX",
+    "Prop_WorkX_CommXE"
+  )])
+}
+
+oecdtimeM = oecdt(female = F)
+oecdtimeF = oecdt(female = T)
+
+SOC_CODE_translation = data.frame(
+  SOC_CODE = c(
+    "YUKPA",
+    "MADUR",
+    "CAMAN",
+    "SHIMA",
+    "KIPS",
+    "YEKWA",
+    "MEKRA",
+    "EFE"
+  ),
+  Society = c(
+    "Yukpa",
+    "Madurese",
+    "Machiguenga\n(Camaná)",
+    "Machiguenga\n(Shimaa)",
+    "Kipsigis",
+    "Ye'kwana",
+    "Mekranoti",
+    "Efe"
+  )
+)
+tap_agg_soc = merge(tap_agg, SOC_CODE_translation, by = "SOC_CODE")
+
+mtap_agg = subset(tap_agg_soc, Female == F)[, c(
+  "Society",
+  "Total_Work",
+  "Total_WorkX",
+  "Prop_Work_Comm",
+  "Prop_Work_CommE",
+  "Prop_WorkX_Comm",
+  "Prop_WorkX_CommE",
+  "Prop_WorkX_CommX",
+  "Prop_WorkX_CommXE"
+)]
+ftap_agg = subset(tap_agg_soc, Female == T)[, c(
+  "Society",
+  "Total_Work",
+  "Total_WorkX",
+  "Prop_Work_Comm",
+  "Prop_Work_CommE",
+  "Prop_WorkX_Comm",
+  "Prop_WorkX_CommE",
+  "Prop_WorkX_CommX",
+  "Prop_WorkX_CommXE"
+)]
+
+mtapoecd = cbind(rbind(mtap_agg, oecdtimeM), scal = as.factor(c(rep(
+  "Small", nrow(mtap_agg)
+), rep(
+  "Large", nrow(oecdtimeM)
+))))
+ftapoecd = cbind(rbind(ftap_agg, oecdtimeF), scal = as.factor(c(rep(
+  "Small", nrow(ftap_agg)
+), rep(
+  "Large", nrow(oecdtimeF)
+))))
+
+
+# -- Bayesian regressions
+
+#men
+bregM_Work_CommE = brm(Total_Work ~ Prop_Work_CommE,
+                       data = mtapoecd,
+                       cores = 3) #work ~ comm w/ E (EC)
+bregM_Work_Comm = brm(Total_Work ~ Prop_Work_Comm, data = mtapoecd, cores = 3) #work ~ comm w/o E (ENC)
+
+#women
+bregF_Work_CommE = brm(Total_Work ~ Prop_Work_CommE,
+                       data = ftapoecd,
+                       cores = 3) #work ~ comm w/ E (EC)
+bregF_Work_Comm = brm(Total_Work ~ Prop_Work_Comm, data = ftapoecd, cores = 3) #work ~ comm w/o E (ENC)
+
+
+#posterior p(slope > 0)
+#men
+mean(posterior_samples(bregM_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(bregM_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#women
+mean(posterior_samples(bregF_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(bregF_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#bayesian R2
+#men
+bayes_R2(bregM_Work_CommE)
+bayes_R2(bregM_Work_Comm)
+
+#women
+bayes_R2(bregF_Work_CommE)
+bayes_R2(bregF_Work_Comm)
+
+#looic comparison
+#men
+b_looicM = loo(bregM_Work_CommE,
+               bregM_Work_Comm,
+               cores = 3,
+               reloo = T)
+#women
+b_looicF = loo(bregF_Work_CommE,
+               bregF_Work_Comm,
+               cores = 3,
+               reloo = T)
+
+
+
+#-Save regressions
+# fname_save = paste0(fpath, "out/")
+# bregs_TAPoecd = list(bregM_Work_Comm = bregM_Work_Comm, bregM_Work_CommE = bregM_Work_CommE, bregF_Work_Comm = bregF_Work_Comm, bregF_Work_CommE = bregF_Work_CommE, b_looicM = b_looicM, b_looicF = b_looicF)
+# saveRDS(bregs_TAPoecd, paste0(fname_save, "TAPoecd_bayesian_regressions.rds"))
+
+#-Load regressions
+# fname_load = paste0(fpath, "out/")
+# bregs_TAPoecd = readRDS(paste0(fname_load, "TAPoecd_bayesian_regressions.rds"))
+# bregM_Work_CommE = bregs_TAPoecd$bregM_Work_CommE
+# bregM_Work_Comm = bregs_TAPoecd$bregM_Work_Comm
+# bregF_Work_CommE = bregs_TAPoecd$bregF_Work_CommE
+# bregF_Work_Comm = bregs_TAPoecd$bregF_Work_Comm
+# b_looicM = bregs_TAPoecd$b_looicM
+# b_looicF = bregs_TAPoecd$b_looicF
+
+
+
+# -- Plot data
+
+#fname_savepdf = paste0(fpath, "out/")
+
+#pdf(paste0(fname_savepdf, "Fig2.pdf"), height = 4, width = 9)
+layout(matrix(1:2, ncol = 2))
+
+#men
+plot(
+  Total_Work ~ Prop_Work_CommE,
+  data = mtapoecd,
+  xlim = c(0, 1),
+  xlab = "Commercial Proportion of Work",
+  ylab = "Total Work Time (hrs/week)",
+  main = "Men",
+  bty = "l",
+  ylim = c(35, 65),
+  pch = 16,
+  col = c("black", "firebrick2")[scal]
+)
+newx <- seq(0, 1, length.out = 101)
+preds <-
+  fitted(
+    bregM_Work_CommE,
+    newdata = data.frame(Prop_Work_CommE = newx),
+    interval = 'confidence',
+    probs = c(0.025, 0.975)
+  )
+# intervals
+lines(newx, preds[, 1])
+lines(newx, preds[, 3], lty = 'dashed')
+lines(newx, preds[, 4], lty = 'dashed')
+
+#women
+plot(
+  Total_Work ~ Prop_Work_CommE,
+  data = ftapoecd,
+  xlim = c(0, 1),
+  xlab = "Commercial Proportion of Work",
+  ylab = "Total Work Time (hrs/week)",
+  main = "Women",
+  bty = "l",
+  ylim = c(35, 65),
+  pch = 16,
+  col = c("black", "firebrick2")[scal]
+)
+newx <- seq(0, 1, length.out = 101)
+preds <-
+  fitted(
+    bregF_Work_CommE,
+    newdata = data.frame(Prop_Work_CommE = newx),
+    interval = 'confidence',
+    probs = c(0.025, 0.975)
+  )
+# intervals
+lines(newx, preds[, 1])
+lines(newx, preds[, 3], lty = 'dashed')
+lines(newx, preds[, 4], lty = 'dashed')
+legend(
+  "bottomright",
+  fill = c("black", "firebrick2"),
+  title = "Societies",
+  legend = c("OECD", "Small-Scale"),
+  bty = "n"
+)
+
+#dev.off()
+```

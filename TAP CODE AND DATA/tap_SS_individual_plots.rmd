@@ -1,0 +1,338 @@
+---
+title: "Untitled"
+author: "Avery Chan"
+date: "4/11/2022"
+output: html_document
+---
+
+```{r}
+# -- Load data
+
+library(scales)
+library(brms)
+library(dplyr)
+
+#read in small-scale data
+fpath = ...
+source(paste0(fpath, "pre-processing/load_tap.r"))
+
+#Small-Scale with individual age data
+mtap_id = subset(tap_id, Female == F)
+ftap_id = subset(tap_id, Female == T)
+
+# at least min num of obs
+mtap_id = subset(mtap_id, Count >= 10)
+ftap_id = subset(ftap_id, Count >= 10)
+#number of people included: nrow(subset(tap_id, Count >= 10))
+#fraction of observations included: sum(subset(tap_id, Count >= 10)$Count)/sum(tap_id$Count)
+
+# age in decades
+mtap_id$AGE = mtap_id$AGE / 10
+ftap_id$AGE = ftap_id$AGE / 10
+
+# mean center age
+mtap_id$AGE = mtap_id$AGE - mean(mtap_id$AGE)
+ftap_id$AGE = ftap_id$AGE - mean(ftap_id$AGE)
+
+
+
+# -- Hierarchical bayesian regressions
+
+#men
+hbregM_Work_CommE = brm(
+  Total_Work ~ Prop_Work_CommE * AGE + (1 + Prop_Work_CommE + AGE |
+                                          SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ educ (EC)
+hbregM_Work_Comm = brm(
+  Total_Work ~ Prop_Work_Comm * AGE + (1 + Prop_Work_Comm + AGE |
+                                         SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o educ (ENC)
+
+#women
+hbregF_Work_CommE = brm(
+  Total_Work ~ Prop_Work_CommE * AGE + (1 + Prop_Work_CommE + AGE |
+                                          SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ educ (EC)
+hbregF_Work_Comm = brm(
+  Total_Work ~ Prop_Work_Comm * AGE + (1 + Prop_Work_Comm + AGE |
+                                         SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o educ (ENC)
+
+#posterior p(slope > 0)
+#men
+mean(posterior_samples(hbregM_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(hbregM_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#women
+mean(posterior_samples(hbregF_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(hbregF_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#bayesian R2
+#men
+bayes_R2(hbregM_Work_CommE)
+bayes_R2(hbregM_Work_Comm)
+
+#women
+bayes_R2(hbregF_Work_CommE)
+bayes_R2(hbregF_Work_Comm)
+
+#looic comparison
+#men
+hb_looicM = loo(hbregM_Work_CommE, hbregM_Work_Comm, cores = 3)
+#women
+hb_looicF = loo(hbregF_Work_CommE, hbregF_Work_Comm, cores = 3)
+
+
+
+#-Save regressions
+# fname_save = paste0(fpath, "out/")
+# hbregs_TAP = list(hbregM_Work_Comm = hbregM_Work_Comm, hbregM_Work_CommE = hbregM_Work_CommE, hbregF_Work_Comm = hbregF_Work_Comm, hbregF_Work_CommE = hbregF_Work_CommE, hb_looicM = hb_looicM, hb_looicF = hb_looicF)
+# saveRDS(hbregs_TAP, paste0(fname_save, "TAP_hierarchical_bayesian_regressions.rds"))
+
+#-Load regressions
+# fname_load = paste0(fpath, "out/")
+# hbregs_TAP = readRDS(paste0(fname_load, "TAP_hierarchical_bayesian_regressions.rds"))
+# hbregM_Work_CommE = hbregs_TAP$hbregM_Work_CommE
+# hbregM_Work_Comm = hbregs_TAP$hbregM_Work_Comm
+# hbregF_Work_CommE = hbregs_TAP$hbregF_Work_CommE
+# hbregF_Work_Comm = hbregs_TAP$hbregF_Work_Comm
+
+
+
+# -- Plot data
+
+#fname_savepdf = paste0(fpath, "out/")
+
+SOC_dec = c("KIPS",
+            "MEKRA",
+            "MADUR",
+            "CAMAN",
+            "SHIMA",
+            "EFE",
+            "YEKWA",
+            "YUKPA")
+SOC_names = c(
+  "Kipsigis",
+  "Mekranoti",
+  "Madurese",
+  "Machiguenga (Camaná)",
+  "Machiguenga (Shimaa)",
+  "Efe",
+  "Ye'kwana",
+  "Yukpa"
+)
+cols_list = rev(
+  c(
+    "#61BC51",
+    "#3E8D31",
+    "#C5CC41",
+    "#C75820",
+    "#D58548",
+    "#A3212B",
+    "#BE3968",
+    "#6D69B6"
+  )
+)
+col_reg = "gray40"
+xaxis_labels = c(rep(NA, 5), "0", ".2", ".4", ".6", ".8", "1", rep(NA, 5))
+# transparencies for plotting
+mtap_id$transps = sqrt(pmin(mtap_id$Count, 100)) / sqrt(100)
+ftap_id$transps = sqrt(pmin(ftap_id$Count, 100)) / sqrt(100)
+
+
+#plotting work against prop comm
+#pdf(paste0(fname_savepdf, "Fig1.pdf"), height = 7, width = 8.5)
+par(mar = rep(.4, 4), oma = c(4, 4, 0.5, 0.5))
+matwidth = 10
+matheight = 16
+laymatL <-
+  matrix(c(
+    rep(1, matwidth + 1),
+    rep(c(2, rep(3:4, each = matwidth / 2)), matheight / 4),
+    rep(c(2, rep(5:6, each = matwidth / 2)), matheight / 4),
+    rep(c(2, rep(7:8, each = matwidth / 2)), matheight / 4),
+    rep(c(2, rep(9:10, each = matwidth / 2)), matheight / 4),
+    rep(11, matwidth + 1)
+  ),
+  byrow = T,
+  ncol = matwidth + 1)
+laymatM <- matrix(rep(12, matheight + 2), ncol = 1)
+laymatR <-
+  12 + matrix(c(
+    rep(1, matwidth + 1),
+    rep(c(2, rep(3:4, each = matwidth / 2)), matheight / 4),
+    rep(c(2, rep(5:6, each = matwidth / 2)), matheight / 4),
+    rep(c(2, rep(7:8, each = matwidth / 2)), matheight / 4),
+    rep(c(2, rep(9:10, each = matwidth / 2)), matheight / 4),
+    rep(11, matwidth + 1)
+  ),
+  byrow = T,
+  ncol = matwidth + 1)
+laymat = cbind(laymatL, laymatM, laymatR)
+layout(laymat)
+
+plot.new()
+mtext(
+  "Men in Small-Scale Societies",
+  side = 1,
+  line = -1,
+  cex = .8
+)
+
+plot.new()
+mtext(
+  "Total Work Time (hrs/week)",
+  side = 2,
+  line = 0,
+  srt = 90,
+  cex = .8
+)
+
+for (s in 1:8) {
+  plot(
+    Total_Work ~ Prop_Work_CommE,
+    subset(mtap_id, SOC_CODE == SOC_dec[s]),
+    xlim = c(0, 1),
+    ylim = c(0, 100),
+    axes = F,
+    xlab = "",
+    ylab = "",
+    pch = 16,
+    col = alpha(cols_list[s], subset(mtap_id, SOC_CODE == SOC_dec[s])$transps)
+  )
+  text(.5, 95, labels = SOC_names[s], cex = 1.2)
+  if (!(s %in% 7:8))
+    axis(1,
+         at = seq(-1, 2, by = .2),
+         tcl = 0,
+         labels = F)
+  #below and above top row
+  if (s %in% 7:8)
+    axis(1,
+         at = seq(-1, 2, by = .2),
+         labels = xaxis_labels,
+         cex = 1.2) #below bottom row
+  if (!(s %in% c(1, 3, 5, 7)))
+    axis(2,
+         at = seq(-20, 120, 20),
+         tcl = 0,
+         labels = F) #left of left
+  if (s %in% c(1, 3, 5, 7))
+    axis(2, at = seq(-20, 120, 20), cex = 1.2) #left of rest
+  
+  clip(0, 1, -10, 110)
+  abline(coef = coef(hbregM_Work_CommE)$SOC_CODE[which(rownames(coef(hbregM_Work_CommE)$SOC_CODE[, , 1]) == SOC_dec[s]), "Estimate", ],
+         col = col_reg)
+  newx <- seq(0, 1, length.out = 101)
+  preds <-
+    fitted(
+      hbregM_Work_CommE,
+      newdata = data.frame(
+        Prop_Work_CommE = newx,
+        SOC_CODE = SOC_dec[s],
+        AGE = rep(0, 101)
+      ),
+      probs = c(0.025, 0.975)
+    )
+  lines(newx, preds[, 3], lty = 'dashed', col = col_reg)
+  lines(newx, preds[, 4], lty = 'dashed', col = col_reg)
+}
+
+plot.new()
+mtext(
+  "Commercial Proportion of Work",
+  side = 1,
+  line = 0,
+  cex = .8
+)
+
+plot.new()
+
+plot.new()
+mtext(
+  "Women in Small-Scale Societies",
+  side = 1,
+  line = -1,
+  cex = .8
+)
+
+plot.new()
+mtext(
+  "Total Work Time (hrs/week)",
+  side = 2,
+  line = 0,
+  srt = 90,
+  cex = .8
+)
+
+for (s in 1:8) {
+  plot(
+    Total_Work ~ Prop_Work_CommE,
+    subset(ftap_id, SOC_CODE == SOC_dec[s]),
+    xlim = c(0, 1),
+    ylim = c(0, 100),
+    axes = F,
+    xlab = "",
+    ylab = "",
+    pch = 16,
+    col = alpha(cols_list[s], subset(ftap_id, SOC_CODE == SOC_dec[s])$transps)
+  )
+  text(.5, 95, labels = SOC_names[s], cex = 1.2)
+  if (!(s %in% 7:8))
+    axis(1,
+         at = seq(-1, 2, by = .2),
+         tcl = 0,
+         labels = F)
+  
+  if (s %in% 7:8)
+    axis(1,
+         at = seq(-1, 2, by = .2),
+         labels = xaxis_labels,
+         cex = 1.2)
+  if (!(s %in% c(1, 3, 5, 7)))
+    axis(2,
+         at = seq(-20, 120, 20),
+         tcl = 0,
+         labels = F)
+  if (s %in% c(1, 3, 5, 7))
+    axis(2, at = seq(-20, 120, 20), cex = 1.2)
+  
+  clip(0, 1, -10, 110)
+  abline(coef = coef(hbregF_Work_CommE)$SOC_CODE[which(rownames(coef(hbregF_Work_CommE)$SOC_CODE[, , 1]) == SOC_dec[s]), "Estimate", ],
+         col = col_reg)
+  newx <- seq(0, 1, length.out = 101)
+  preds <-
+    fitted(
+      hbregF_Work_CommE,
+      newdata = data.frame(
+        Prop_Work_CommE = newx,
+        SOC_CODE = SOC_dec[s],
+        AGE = rep(0, 101)
+      ),
+      probs = c(0.025, 0.975)
+    )
+  lines(newx, preds[, 3], lty = 'dashed', col = col_reg)
+  lines(newx, preds[, 4], lty = 'dashed', col = col_reg)
+}
+
+plot.new()
+mtext(
+  "Commercial Proportion of Work",
+  side = 1,
+  line = 0,
+  cex = .8
+)
+#dev.off()
+```

@@ -1,0 +1,1244 @@
+---
+title: "Untitled"
+author: "Avery Chan"
+date: "4/11/2022"
+output: html_document
+---
+
+```{r}
+# -- Supplemental -- #
+
+library(reshape2)
+library(ggplot2)
+library(RColorBrewer)
+library(ggsci)
+
+# - Individual level - #
+
+#-Hierarchical Bayesian Regressions
+
+#males
+#including all individuals
+hbregM_Work_CommE_AllCount = brm(
+  Total_Work ~ Prop_Work_CommE * AGE + (1 + Prop_Work_CommE + AGE |
+                                          SOC_CODE),
+  data = subset(tap_id, Female == F),
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ educ
+hbregM_Work_Comm_AllCount = brm(
+  Total_Work ~ Prop_Work_Comm * AGE + (1 + Prop_Work_Comm + AGE |
+                                         SOC_CODE),
+  data = subset(tap_id, Female == F),
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o educ
+#controlling for age^2
+hbregM_Work_CommE_Age2 = brm(
+  Total_Work ~ Prop_Work_CommE * poly(AGE, 2) + (1 + Prop_Work_CommE + poly(AGE, 2) |
+                                                   SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ E
+hbregM_Work_Comm_Age2 = brm(
+  Total_Work ~ Prop_Work_Comm * poly(AGE, 2) + (1 + Prop_Work_Comm + poly(AGE, 2) |
+                                                  SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o E
+#not controlling for age
+hbregM_Work_CommE_NoAge = brm(
+  Total_Work ~ Prop_Work_CommE + (1 + Prop_Work_CommE |
+                                    SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ E
+hbregM_Work_Comm_NoAge = brm(
+  Total_Work ~ Prop_Work_Comm + (1 + Prop_Work_Comm |
+                                   SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o E
+#including UU/UX/X as (non-commercial/commercial) work
+hbregM_WorkX_CommE = brm(
+  Total_WorkX ~ Prop_WorkX_CommE * AGE + (1 + Prop_WorkX_CommE + AGE |
+                                            SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/ E
+hbregM_WorkX_Comm = brm(
+  Total_WorkX ~ Prop_WorkX_Comm * AGE + (1 + Prop_WorkX_Comm + AGE |
+                                           SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/o E
+hbregM_WorkX_CommXE = brm(
+  Total_WorkX ~ Prop_WorkX_CommXE * AGE + (1 + Prop_WorkX_CommXE + AGE |
+                                             SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/ XE
+hbregM_WorkX_CommX = brm(
+  Total_WorkX ~ Prop_WorkX_CommX * AGE + (1 + Prop_WorkX_CommX + AGE |
+                                            SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/ X
+
+#posterior probs
+mean(
+  posterior_samples(
+    hbregM_Work_CommE_AllCount,
+    pars = "b_Prop_Work_CommE",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregM_Work_Comm_AllCount,
+    pars = "b_Prop_Work_Comm",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregM_Work_CommE_NoAge,
+    pars = "b_Prop_Work_CommE",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregM_Work_Comm_NoAge,
+    pars = "b_Prop_Work_Comm",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregM_Work_CommE_Age2,
+    pars = "b_Prop_Work_CommE",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregM_Work_Comm_Age2,
+    pars = "b_Prop_Work_Comm",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(hbregM_WorkX_CommE, pars = "b_Prop_WorkX_CommE", exact_match = T) > 0
+)
+mean(posterior_samples(hbregM_WorkX_Comm, pars = "b_Prop_WorkX_Comm", exact_match = T) > 0)
+mean(
+  posterior_samples(hbregM_WorkX_CommXE, pars = "b_Prop_WorkX_CommXE", exact_match = T) > 0
+)
+mean(
+  posterior_samples(hbregM_WorkX_CommX, pars = "b_Prop_WorkX_CommX", exact_match = T) > 0
+)
+
+#leave-one-out information criterion comparison
+hb_looicsM = loo(
+  hbregM_Work_CommE,
+  hbregM_Work_Comm,
+  hbregM_Work_CommE_NoAge,
+  hbregM_Work_Comm_NoAge,
+  hbregM_Work_CommE_Age2,
+  hbregM_Work_Comm_Age2,
+  cores = 3
+)
+
+#females
+#including all individuals
+hbregF_Work_CommE_AllCount = brm(
+  Total_Work ~ Prop_Work_CommE * AGE + (1 + Prop_Work_CommE + AGE |
+                                          SOC_CODE),
+  data = subset(tap_id, Female == T),
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ educ
+hbregF_Work_Comm_AllCount = brm(
+  Total_Work ~ Prop_Work_Comm * AGE + (1 + Prop_Work_Comm + AGE |
+                                         SOC_CODE),
+  data = subset(tap_id, Female == T),
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o educ
+#controlling for age^2
+hbregF_Work_CommE_Age2 = brm(
+  Total_Work ~ Prop_Work_CommE * poly(AGE, 2) + (1 + Prop_Work_CommE + poly(AGE, 2) |
+                                                   SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ E
+hbregF_Work_Comm_Age2 = brm(
+  Total_Work ~ Prop_Work_Comm * poly(AGE, 2) + (1 + Prop_Work_Comm + poly(AGE, 2) |
+                                                  SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o E
+#not controlling for age
+hbregF_Work_CommE_NoAge = brm(
+  Total_Work ~ Prop_Work_CommE + (1 + Prop_Work_CommE |
+                                    SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ E
+hbregF_Work_Comm_NoAge = brm(
+  Total_Work ~ Prop_Work_Comm + (1 + Prop_Work_Comm |
+                                   SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o E
+#including UU/UX/X as (non-commercial/commercial) work
+hbregF_WorkX_CommE = brm(
+  Total_WorkX ~ Prop_WorkX_CommE * AGE + (1 + Prop_WorkX_CommE + AGE |
+                                            SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/ E
+hbregF_WorkX_Comm = brm(
+  Total_WorkX ~ Prop_WorkX_Comm * AGE + (1 + Prop_WorkX_Comm + AGE |
+                                           SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/o E
+hbregF_WorkX_CommXE = brm(
+  Total_WorkX ~ Prop_WorkX_CommXE * AGE + (1 + Prop_WorkX_CommXE + AGE |
+                                             SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/ XE
+hbregF_WorkX_CommX = brm(
+  Total_WorkX ~ Prop_WorkX_CommX * AGE + (1 + Prop_WorkX_CommX + AGE |
+                                            SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work w/ X ~ comm w/ X
+
+#posterior probs
+mean(
+  posterior_samples(
+    hbregF_Work_CommE_AllCount,
+    pars = "b_Prop_Work_CommE",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregF_Work_Comm_AllCount,
+    pars = "b_Prop_Work_Comm",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregF_Work_CommE_NoAge,
+    pars = "b_Prop_Work_CommE",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregF_Work_Comm_NoAge,
+    pars = "b_Prop_Work_Comm",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregF_Work_CommE_Age2,
+    pars = "b_Prop_Work_CommE",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(
+    hbregF_Work_Comm_Age2,
+    pars = "b_Prop_Work_Comm",
+    exact_match = T
+  ) > 0
+)
+mean(
+  posterior_samples(hbregF_WorkX_CommE, pars = "b_Prop_WorkX_CommE", exact_match = T) > 0
+)
+mean(posterior_samples(hbregF_WorkX_Comm, pars = "b_Prop_WorkX_Comm", exact_match = T) > 0)
+mean(
+  posterior_samples(hbregF_WorkX_CommXE, pars = "b_Prop_WorkX_CommXE", exact_match = T) > 0
+)
+mean(
+  posterior_samples(hbregF_WorkX_CommX, pars = "b_Prop_WorkX_CommX", exact_match = T) > 0
+)
+
+#leave-one-out information criterion comparison
+hb_looicsF = loo(
+  hbregF_Work_CommE,
+  hbregF_Work_Comm,
+  hbregF_Work_CommE_NoAge,
+  hbregF_Work_Comm_NoAge,
+  hbregF_Work_CommE_Age2,
+  hbregF_Work_Comm_Age2,
+  cores = 3
+)
+
+
+#males and females together
+mftap_id = subset(tap_id, Count >= 10)
+mftap_id$AGE = mftap_id$AGE / 10
+mftap_id$AGE = mftap_id$AGE - mean(mftap_id$AGE)
+hbregMF_Work_CommE = brm(
+  Total_Work ~ Prop_Work_CommE * AGE * Female + (1 + Prop_Work_CommE + AGE + Female |
+                                                   SOC_CODE),
+  data = mftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ E
+hbregMF_Work_Comm = brm(
+  Total_Work ~ Prop_Work_Comm * AGE * Female + (1 + Prop_Work_Comm + AGE + Female |
+                                                  SOC_CODE),
+  data = mftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o E
+
+mean(posterior_samples(hbregMF_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(hbregMF_Work_CommE, pars = "b_FemaleTRUE", exact_match = T) > 0)
+mean(
+  posterior_samples(hbregMF_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) + posterior_samples(hbregMF_Work_CommE, pars = "b_Prop_Work_CommE:FemaleTRUE", exact_match = T) > 0
+)
+
+mean(posterior_samples(hbregMF_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+mean(posterior_samples(hbregMF_Work_Comm, pars = "b_FemaleTRUE", exact_match = T) > 0)
+mean(
+  posterior_samples(hbregMF_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) + posterior_samples(hbregMF_Work_Comm, pars = "b_Prop_Work_Comm:FemaleTRUE", exact_match = T) > 0
+)
+
+#leave-one-out information criterion comparison
+hb_looicsMF = loo(hbregMF_Work_CommE, hbregMF_Work_Comm, cores = 3)
+
+
+
+# - Society level - #
+
+#-Bayesian regressions
+
+#males
+#including UU/UX/X as (non-commercial/commercial) work
+bregM_WorkX_CommE = brm(Total_WorkX ~ Prop_WorkX_CommE,
+                        data = mtapoecd,
+                        cores = 3) #work w/ X ~ comm w/ E
+bregM_WorkX_Comm = brm(Total_WorkX ~ Prop_WorkX_Comm,
+                       data = mtapoecd,
+                       cores = 3) #work w/ X ~ comm w/o E
+bregM_WorkX_CommXE = brm(Total_WorkX ~ Prop_WorkX_CommXE,
+                         data = mtapoecd,
+                         cores = 3) #work w/ X ~ comm w/ XE
+bregM_WorkX_CommX = brm(Total_WorkX ~ Prop_WorkX_CommX,
+                        data = mtapoecd,
+                        cores = 3) #work w/ X ~ comm w/ X
+
+#posterior probs
+mean(posterior_samples(bregM_WorkX_CommE, pars = "b_Prop_WorkX_CommE", exact_match = T) > 0)
+mean(posterior_samples(bregM_WorkX_Comm, pars = "b_Prop_WorkX_Comm", exact_match = T) > 0)
+mean(
+  posterior_samples(bregM_WorkX_CommXE, pars = "b_Prop_WorkX_CommXE", exact_match = T) > 0
+)
+mean(posterior_samples(bregM_WorkX_CommX, pars = "b_Prop_WorkX_CommX", exact_match = T) > 0)
+
+#leave-one-out information criterion comparison
+b_looicsM = loo(bregM_WorkX_CommE,
+                bregM_WorkX_Comm,
+                bregM_WorkX_CommXE,
+                bregM_WorkX_CommX,
+                cores = 3)
+
+#females
+#including UU/UX/X as (non-commercial/commercial) work
+bregF_WorkX_CommE = brm(Total_WorkX ~ Prop_WorkX_CommE,
+                        data = ftapoecd,
+                        cores = 3) #work w/ X ~ comm w/ E
+bregF_WorkX_Comm = brm(Total_WorkX ~ Prop_WorkX_Comm,
+                       data = ftapoecd,
+                       cores = 3) #work w/ X ~ comm w/o E
+bregF_WorkX_CommXE = brm(Total_WorkX ~ Prop_WorkX_CommXE,
+                         data = ftapoecd,
+                         cores = 3) #work w/ X ~ comm w/ XE
+bregF_WorkX_CommX = brm(Total_WorkX ~ Prop_WorkX_CommX,
+                        data = ftapoecd,
+                        cores = 3) #work w/ X ~ comm w/ X
+
+#posterior probs
+mean(posterior_samples(bregF_WorkX_CommE, pars = "b_Prop_WorkX_CommE", exact_match = T) > 0)
+mean(posterior_samples(bregF_WorkX_Comm, pars = "b_Prop_WorkX_Comm", exact_match = T) > 0)
+mean(
+  posterior_samples(bregF_WorkX_CommXE, pars = "b_Prop_WorkX_CommXE", exact_match = T) > 0
+)
+mean(posterior_samples(bregF_WorkX_CommX, pars = "b_Prop_WorkX_CommX", exact_match = T) > 0)
+
+#leave-one-out information criterion comparison
+b_looicsF = loo(bregF_WorkX_CommE,
+                bregF_WorkX_Comm,
+                bregF_WorkX_CommXE,
+                bregF_WorkX_CommX,
+                cores = 3)
+
+#males and females together
+mftapoecd = rbind(cbind(mtapoecd, Female = F), cbind(ftapoecd, Female = T))
+bregMF_Work_CommE = brm(Total_Work ~ Prop_Work_CommE * Female,
+                        data = mftapoecd,
+                        cores = 3) #work ~ comm w/ E
+bregMF_Work_Comm = brm(Total_Work ~ Prop_Work_Comm * Female,
+                       data = mftapoecd,
+                       cores = 3) #work ~ comm w/o E
+
+mean(posterior_samples(bregMF_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(bregMF_Work_CommE, pars = "b_FemaleTRUE", exact_match = T) > 0)
+mean(
+  posterior_samples(bregMF_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) + posterior_samples(bregMF_Work_CommE, pars = "b_Prop_Work_CommE:FemaleTRUE", exact_match = T) > 0
+)
+
+mean(posterior_samples(bregMF_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+mean(posterior_samples(bregMF_Work_Comm, pars = "b_FemaleTRUE", exact_match = T) > 0)
+mean(
+  posterior_samples(bregMF_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) + posterior_samples(bregMF_Work_Comm, pars = "b_Prop_Work_Comm:FemaleTRUE", exact_match = T) > 0
+)
+
+b_looicsMF = loo(bregMF_Work_CommE, bregMF_Work_Comm, cores = 3)
+
+
+#-Plot stacked barplots of commercial/non-commercial/leisure activities
+
+#males
+mtapoecd_stack = merge(
+  melt(
+    data.frame(
+      Society = mtapoecd$Society,
+      NonWork = (24 - mtapoecd$Total_Work / 7),
+      Household = (mtapoecd$Total_Work * (1 - mtapoecd$Prop_Work_CommE) / 7),
+      Commercial = (mtapoecd$Total_Work * mtapoecd$Prop_Work_CommE) / 7
+    ),
+    variable.name = "Activity"
+  ),
+  data.frame(
+    Society = mtapoecd$Society,
+    rankorder = rank(mtapoecd$Total_Work * mtapoecd$Prop_Work_CommE)
+  ),
+  by = "Society"
+)
+
+ggplot(mtapoecd_stack, aes(
+  fill = Activity,
+  y = value,
+  x = reorder(Society,-rankorder)
+)) + geom_bar(stat = "identity") + coord_flip() + xlab("Society") + ylab("Hours per day") + scale_fill_manual(values =
+                                                                                                                pal_jco("default")(10)[c(1, 9, 2)]) + theme(
+                                                                                                                  panel.grid.major.y = element_blank(),
+                                                                                                                  panel.grid.minor = element_line(colour = "white", size = 0.2),
+                                                                                                                  panel.background = element_rect(fill = NA),
+                                                                                                                  panel.ontop = TRUE
+                                                                                                                ) + scale_y_continuous(minor_breaks = seq(0, 24, 8), breaks = seq(0, 24, 8))
+
+#females
+ftapoecd_stack = merge(
+  melt(
+    data.frame(
+      Society = ftapoecd$Society,
+      NonWork = (24 - ftapoecd$Total_Work / 7),
+      Household = (ftapoecd$Total_Work * (1 - ftapoecd$Prop_Work_CommE) / 7),
+      Commercial = (ftapoecd$Total_Work * ftapoecd$Prop_Work_CommE) / 7
+    ),
+    variable.name = "Activity"
+  ),
+  data.frame(
+    Society = ftapoecd$Society,
+    rankorder = rank(ftapoecd$Total_Work * ftapoecd$Prop_Work_CommE)
+  ),
+  by = "Society"
+)
+
+ggplot(ftapoecd_stack, aes(
+  fill = Activity,
+  y = value,
+  x = reorder(Society,-rankorder)
+)) + geom_bar(stat = "identity") + coord_flip() + xlab("Society") + ylab("Hours per day") + scale_fill_manual(values =
+                                                                                                                pal_jco("default")(10)[c(1, 9, 2)]) + theme(
+                                                                                                                  panel.grid.major.y = element_blank(),
+                                                                                                                  panel.grid.minor = element_line(colour = "white", size = 0.2),
+                                                                                                                  panel.background = element_rect(fill = NA),
+                                                                                                                  panel.ontop = TRUE
+                                                                                                                ) + scale_y_continuous(minor_breaks = seq(0, 24, 8), breaks = seq(0, 24, 8))
+
+
+#-Monthly seasonality
+date_formatted <- as.Date(tap$DATE, format = "%Y-%m-%d")
+tap$MONTH <- as.numeric(format(date_formatted, format = "%m"))
+Month_Work = sapply(SOC_dec, function(soc)
+  sapply(1:12, function(month)
+    mean(subset(
+      tap, (SOC_CODE == soc) & (MONTH == month)
+    )$WORK_W)))
+Month_DayLengths = sapply(SOC_dec, function(soc)
+  sapply(1:12, function(month)
+    mean(subset(
+      tap, (SOC_CODE == soc) & (MONTH == month)
+    )$DayLength)))
+Monthly_Work = Month_Work * Month_DayLengths * 7
+Month_Counts = sapply(SOC_dec, function(soc)
+  table(factor(
+    subset(tap, SOC_CODE == soc)$MONTH, levels = 1:12
+  )))
+Month_Work_CIs = 1.96 * sqrt(Month_Work * (1 - Month_Work) / Month_Counts) *
+  Month_DayLengths * 7
+
+error.bar <- function(x,
+                      y,
+                      upper,
+                      lower = upper,
+                      length = 0.01) {
+  arrows(
+    x,
+    y + upper,
+    x,
+    y - lower,
+    angle = 90,
+    code = 3,
+    length = length
+  )
+}
+laymat <-
+  matrix(c(rep(c(1, rep(
+    2:3, each = 5
+  )), 6), rep(c(1, rep(
+    4:5, each = 5
+  )), 6), rep(c(1, rep(
+    6:7, each = 5
+  )), 6), rep(c(1, rep(
+    8:9, each = 5
+  )), 6), c(10, rep(11, 5 * 2))),
+  byrow = T,
+  ncol = 1 + 5 * 2)
+layout(laymat)
+par(mar = rep(.4, 4), oma = c(4, 4, 0.5, 0.5))
+
+plot.new()
+mtext(
+  "Total Work Time (hrs/week)",
+  side = 2,
+  srt = 90,
+  cex = .8
+)
+
+for (si in 1:8) {
+  bar <-
+    barplot(
+      Monthly_Work[, si],
+      border = F,
+      axes = F,
+      xlab = "",
+      ylab = "",
+      ylim = c(-5, 95)
+    )
+  error.bar(bar, Monthly_Work[, si], Month_Work_CIs[, si])
+  text(mean(bar[6:7]), 90, SOC_names[si])
+  if (si %in% 1:8)
+    axis(1,
+         at = -5:20,
+         tcl = 0,
+         labels = F)
+  
+  if (si %in% 7:8)
+    axis(1, at = bar, labels = substr(month.abb, 1, 1))
+  if (!(si %in% c(1, 3, 5, 7)))
+    axis(2,
+         at = seq(-20, 120, 20),
+         tcl = 0,
+         labels = F)
+  if (si %in% c(1, 3, 5, 7))
+    axis(2, at = seq(-20, 120, 20))
+  abline(h = seq(0, 80, by = 20), lty = "dotted")
+}
+
+plot.new()
+plot.new()
+mtext("Month",
+      side = 1,
+      line = 1,
+      cex = .8)
+
+
+
+# - Household level - #
+
+tap_hhmf$Age = tap_hhmf$Age / 10
+tap_hhmf_M = subset(tap_hhmf, Female == F)
+tap_hhmf_F = subset(tap_hhmf, Female == T)
+tap_hhmf_M$Age = tap_hhmf_M$Age - mean(tap_hhmf_M$Age)
+tap_hhmf_F$Age = tap_hhmf_F$Age - mean(tap_hhmf_F$Age)
+
+#-regressions
+
+#males
+hbregHHM_Work_CommE = brm(
+  Total_Work ~ Prop_Work_CommE * Age + (1 + Prop_Work_CommE + Age |
+                                          SOC_CODE),
+  data = subset(tap_hhmf_M,!(SOC_CODE == "EFE")),
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ educ (EC)
+hbregHHM_Work_Comm = brm(
+  Total_Work ~ Prop_Work_Comm * Age + (1 + Prop_Work_Comm + Age |
+                                         SOC_CODE),
+  data = subset(tap_hhmf_M,!(SOC_CODE == "EFE")),
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/o educ (ENC)
+
+mean(
+  posterior_samples(hbregHHM_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0
+)
+mean(posterior_samples(hbregHHM_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#females
+hbregHHF_Work_CommE = brm(
+  Total_Work ~ Prop_Work_CommE * Age + (1 + Prop_Work_CommE + Age |
+                                          SOC_CODE),
+  data = subset(tap_hhmf_F,!(SOC_CODE == "EFE")),
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #work ~ comm w/ educ (EC)
+hbregHHF_Work_Comm = brm(
+  Total_Work ~ Prop_Work_Comm * Age + (1 + Prop_Work_Comm + Age |
+                                         SOC_CODE),
+  data = subset(tap_hhmf_F,!(SOC_CODE == "EFE")),
+  cores = 3,
+  control = list(adapt_delta = 0.999)
+) #work ~ comm w/o educ (ENC)
+
+mean(
+  posterior_samples(hbregHHF_Work_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0
+)
+mean(posterior_samples(hbregHHF_Work_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#plot posterior coefficients
+layout(matrix(1:4, nrow = 2))
+xlim = c(-40, 40)
+
+plot(
+  density(
+    posterior_samples(hbregM_Work_CommE, "b_Prop_Work_CommE", exact_match = T)[, 1]
+  ),
+  xlim = xlim,
+  col = "blue",
+  xlab = bquote(beta[EC] ~ coefficient),
+  main = "Posterior distribution",
+  lty = "dotted",
+  ylim = c(0, .1),
+  lwd = 2
+)
+points(
+  density(
+    posterior_samples(hbregHHM_Work_CommE, "b_Prop_Work_CommE", exact_match = T)[, 1]
+  ),
+  lty = "59",
+  type = "l",
+  col = "blue"
+)
+points(
+  density(
+    posterior_samples(bregM_Work_CommE, "b_Prop_Work_CommE", exact_match = T)[, 1]
+  ),
+  lty = "solid",
+  type = "l",
+  col = "blue"
+)
+
+legend(
+  "topleft",
+  legend = c("Individual", "Household", "Society"),
+  lty = c("dotted", "59", "solid"),
+  bty = "n",
+  lwd = c(2, 1, 1)
+)
+
+plot(
+  density(
+    posterior_samples(hbregM_Work_Comm, "b_Prop_Work_Comm", exact_match = T)[, 1]
+  ),
+  xlim = xlim,
+  col = "blue",
+  xlab = bquote(beta[ENC] ~ coefficient),
+  main = "Posterior distribution",
+  lty = "dotted",
+  ylim = c(0, .1),
+  lwd = 2
+)
+points(
+  density(
+    posterior_samples(hbregHHM_Work_Comm, "b_Prop_Work_Comm", exact_match = T)[, 1]
+  ),
+  lty = "59",
+  type = "l",
+  col = "blue"
+)
+points(
+  density(
+    posterior_samples(bregM_Work_Comm, "b_Prop_Work_Comm", exact_match = T)[, 1]
+  ),
+  lty = "solid",
+  type = "l",
+  col = "blue"
+)
+
+plot(
+  density(
+    posterior_samples(hbregF_Work_CommE, "b_Prop_Work_CommE", exact_match = T)[, 1]
+  ),
+  xlim = xlim,
+  col = "red",
+  xlab = bquote(beta[EC] ~ coefficient),
+  main = "Posterior distribution",
+  lty = "dotted",
+  ylim = c(0, .1),
+  lwd = 2
+)
+points(
+  density(
+    posterior_samples(hbregHHF_Work_CommE, "b_Prop_Work_CommE", exact_match = T)[, 1]
+  ),
+  lty = "59",
+  type = "l",
+  col = "red"
+)
+points(
+  density(
+    posterior_samples(bregF_Work_CommE, "b_Prop_Work_CommE", exact_match = T)[, 1]
+  ),
+  lty = "solid",
+  type = "l",
+  col = "red"
+)
+
+plot(
+  density(
+    posterior_samples(hbregF_Work_Comm, "b_Prop_Work_Comm", exact_match = T)[, 1]
+  ),
+  xlim = xlim,
+  col = "red",
+  xlab = bquote(beta[ENC] ~ coefficient),
+  main = "Posterior distribution",
+  lty = "dotted",
+  ylim = c(0, .1),
+  lwd = 2
+)
+points(
+  density(
+    posterior_samples(hbregHHF_Work_Comm, "b_Prop_Work_Comm", exact_match = T)[, 1]
+  ),
+  lty = "59",
+  type = "l",
+  col = "red"
+)
+points(
+  density(
+    posterior_samples(bregF_Work_Comm, "b_Prop_Work_Comm", exact_match = T)[, 1]
+  ),
+  lty = "solid",
+  type = "l",
+  col = "red"
+)
+
+
+#-household bootstrap test
+
+B = 1000
+age_window = 5
+
+#Commercial proportion of work (EC)
+tap_id_HH = lapply(SOC_dec[!(SOC_dec == "EFE")], function(soc)
+  subset(tap_id, SOC_CODE == soc))
+tap_id_HH_vars = sapply(1:length(tap_id_HH), function(si)
+  mean(
+    aggregate(tap_id_HH[[si]]$Prop_Work_CommE, list(tap_id_HH[[si]]$HOUSEHOLD), FUN = var)$x,
+    na.rm = T
+  ))
+tap_id_shuffleHH_vars = t(sapply(1:B, function(b) {
+  tap_id_shuffleHH = lapply(SOC_dec[!(SOC_dec == "EFE")], function(soc) {
+    soc_dat = subset(tap_id, SOC_CODE == soc)
+    shuffled_soc_dat = data.frame(soc_dat[, !(names(tap_id) %in% "HOUSEHOLD")], HOUSEHOLD = sapply(1:nrow(soc_dat), function(i)
+      sample(
+        subset(
+          soc_dat,
+          Female == soc_dat[i, "Female"] &
+            AGE > soc_dat[i, "AGE"] - age_window &
+            AGE < soc_dat[i, "AGE"] + age_window
+        )$HOUSEHOLD,
+        size = 1
+      )))
+    #data.frame(subset(tap_id, SOC_CODE == soc)[,!(names(tap_id) %in% "HOUSEHOLD")], HOUSEHOLD = sapply(1:nrows(subset(tap_id, SOC_CODE == soc)), function(i) )sample(subset(tap_id, SOC_CODE == soc)$HOUSEHOLD))
+    return(shuffled_soc_dat)
+  })
+  shuffleHH_vars = sapply(1:length(tap_id_shuffleHH), function(si)
+    mean(
+      aggregate(
+        tap_id_shuffleHH[[si]]$Prop_Work_CommE,
+        list(tap_id_shuffleHH[[si]]$HOUSEHOLD),
+        FUN = var
+      )$x,
+      na.rm = T
+    ))
+  return(shuffleHH_vars)
+}))
+tap_id_HH_vars_mat = t(matrix(rep(tap_id_HH_vars, B), byrow = F, ncol = B))
+apply(tap_id_HH_vars_mat > tap_id_shuffleHH_vars, 2, mean) #Prob(variance within household > variance within shuffled household) for each society excluding EFE
+
+
+#Commercial proportion of work (ENC)
+tap_id_HH = lapply(SOC_dec[!(SOC_dec == "EFE")], function(soc)
+  subset(tap_id, SOC_CODE == soc))
+tap_id_HH_vars = sapply(1:length(tap_id_HH), function(si)
+  mean(
+    aggregate(tap_id_HH[[si]]$Prop_Work_Comm, list(tap_id_HH[[si]]$HOUSEHOLD), FUN = var)$x,
+    na.rm = T
+  ))
+tap_id_shuffleHH_vars = t(sapply(1:B, function(b) {
+  tap_id_shuffleHH = lapply(SOC_dec[!(SOC_dec == "EFE")], function(soc) {
+    soc_dat = subset(tap_id, SOC_CODE == soc)
+    shuffled_soc_dat = data.frame(soc_dat[, !(names(tap_id) %in% "HOUSEHOLD")], HOUSEHOLD = sapply(1:nrow(soc_dat), function(i)
+      sample(
+        subset(
+          soc_dat,
+          Female == soc_dat[i, "Female"] &
+            AGE > soc_dat[i, "AGE"] - age_window &
+            AGE < soc_dat[i, "AGE"] + age_window
+        )$HOUSEHOLD,
+        size = 1
+      )))
+    #data.frame(subset(tap_id, SOC_CODE == soc)[,!(names(tap_id) %in% "HOUSEHOLD")], HOUSEHOLD = sapply(1:nrows(subset(tap_id, SOC_CODE == soc)), function(i) )sample(subset(tap_id, SOC_CODE == soc)$HOUSEHOLD))
+    return(shuffled_soc_dat)
+  })
+  shuffleHH_vars = sapply(1:length(tap_id_shuffleHH), function(si)
+    mean(
+      aggregate(
+        tap_id_shuffleHH[[si]]$Prop_Work_Comm,
+        list(tap_id_shuffleHH[[si]]$HOUSEHOLD),
+        FUN = var
+      )$x,
+      na.rm = T
+    ))
+  return(shuffleHH_vars)
+}))
+tap_id_HH_vars_mat = t(matrix(rep(tap_id_HH_vars, B), byrow = F, ncol = B))
+apply(tap_id_HH_vars_mat > tap_id_shuffleHH_vars, 2, mean) #Prob(variance within household > variance within shuffled household) for each society excluding EFE
+
+#Total work
+tap_id_HH = lapply(SOC_dec[!(SOC_dec == "EFE")], function(soc)
+  subset(tap_id, SOC_CODE == soc))
+tap_id_HH_vars = sapply(1:length(tap_id_HH), function(si)
+  mean(aggregate(
+    tap_id_HH[[si]]$Total_Work, list(tap_id_HH[[si]]$HOUSEHOLD), FUN = var
+  )$x, na.rm = T))
+tap_id_shuffleHH_vars = t(sapply(1:B, function(b) {
+  tap_id_shuffleHH = lapply(SOC_dec[!(SOC_dec == "EFE")], function(soc) {
+    soc_dat = subset(tap_id, SOC_CODE == soc)
+    shuffled_soc_dat = data.frame(soc_dat[, !(names(tap_id) %in% "HOUSEHOLD")], HOUSEHOLD = sapply(1:nrow(soc_dat), function(i)
+      sample(
+        subset(
+          soc_dat,
+          Female == soc_dat[i, "Female"] &
+            AGE > soc_dat[i, "AGE"] - age_window &
+            AGE < soc_dat[i, "AGE"] + age_window
+        )$HOUSEHOLD,
+        size = 1
+      )))
+    #data.frame(subset(tap_id, SOC_CODE == soc)[,!(names(tap_id) %in% "HOUSEHOLD")], HOUSEHOLD = sapply(1:nrows(subset(tap_id, SOC_CODE == soc)), function(i) )sample(subset(tap_id, SOC_CODE == soc)$HOUSEHOLD))
+    return(shuffled_soc_dat)
+  })
+  shuffleHH_vars = sapply(1:length(tap_id_shuffleHH), function(si)
+    mean(
+      aggregate(
+        tap_id_shuffleHH[[si]]$Total_Work,
+        list(tap_id_shuffleHH[[si]]$HOUSEHOLD),
+        FUN = var
+      )$x,
+      na.rm = T
+    ))
+  return(shuffleHH_vars)
+}))
+tap_id_HH_vars_mat = t(matrix(rep(tap_id_HH_vars, B), byrow = F, ncol = B))
+apply(tap_id_HH_vars_mat > tap_id_shuffleHH_vars, 2, mean) #Prob(variance within household > variance within shuffled household) for each society excluding EFE
+
+
+
+# - Energy Analyses - #
+
+# - Individual level
+
+#men
+hbregM_Energy_CommE = brm(
+  Total_Energy ~ Prop_Work_CommE * AGE + (1 + Prop_Work_CommE + AGE |
+                                            SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #energy ~ comm w/ educ (EC)
+hbregM_Energy_Comm = brm(
+  Total_Energy ~ Prop_Work_Comm * AGE + (1 + Prop_Work_Comm + AGE |
+                                           SOC_CODE),
+  data = mtap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #energy ~ comm w/o educ (ENC)
+
+#women
+hbregF_Energy_CommE = brm(
+  Total_Energy ~ Prop_Work_CommE * AGE + (1 + Prop_Work_CommE + AGE |
+                                            SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #energy ~ comm w/ educ (EC)
+hbregF_Energy_Comm = brm(
+  Total_Energy ~ Prop_Work_Comm * AGE + (1 + Prop_Work_Comm + AGE |
+                                           SOC_CODE),
+  data = ftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+) #energy ~ comm w/o educ (ENC)
+
+#men and women comparison
+hbregMF_Energy = brm(
+  Total_Energy ~ Female + (1 |
+                             SOC_CODE),
+  data = mftap_id,
+  cores = 3,
+  control = list(adapt_delta = 0.99)
+)
+mean(posterior_samples(hbregMF_Energy, pars = "b_FemaleTRUE", exact_match = T) < 0)
+
+#posterior p(slope > 0)
+#men
+mean(
+  posterior_samples(hbregM_Energy_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0
+)
+mean(posterior_samples(hbregM_Energy_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#women
+mean(
+  posterior_samples(hbregF_Energy_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0
+)
+mean(posterior_samples(hbregF_Energy_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#bayesian R2
+#men
+bayes_R2(hbregM_Energy_CommE)
+bayes_R2(hbregM_Energy_Comm)
+
+#women
+bayes_R2(hbregF_Energy_CommE)
+bayes_R2(hbregF_Energy_Comm)
+
+#looic comparison
+#men
+hb_looicM_Energy = loo(hbregM_Energy_CommE, hbregM_Energy_Comm, cores = 3)
+#women
+hb_looicF_Energy = loo(hbregF_Energy_CommE, hbregF_Energy_Comm, cores = 3)
+
+#plotting energy against prop comm (EC)
+par(mar = rep(.4, 4), oma = c(4, 4, 0.5, 0.5))
+laymat <-
+  matrix(
+    c(
+      c(1, rep(1, each = 3, times = 4)),
+      rep(c(2, rep(3:6, each = 3)), 4),
+      rep(c(2, rep(7:10, each = 3)), 4),
+      rep(11, 1 + 3 * 4),
+      rep(12, 1 + 3 * 4),
+      rep(13, 2 * (1 + 3 * 4)),
+      rep(c(14, rep(15:18, each = 3)), 4),
+      rep(c(14, rep(19:22, each = 3)), 4),
+      rep(23, 1 + 3 * 4)
+    ),
+    byrow = T,
+    ncol = 1 + 3 * 4
+  )
+laymat <-
+  matrix(c(
+    c(1, rep(1, each = 3, times = 4)),
+    rep(c(2, rep(3:6, each = 3)), 4),
+    rep(c(2, rep(7:10, each = 3)), 4),
+    rep(11, 1 + 3 * 4),
+    rep(12, 1 + 3 * 4),
+    rep(c(13, rep(14:17, each = 3)), 4),
+    rep(c(13, rep(18:21, each = 3)), 4),
+    rep(22, 1 + 3 * 4)
+  ),
+  byrow = T,
+  ncol = 1 + 3 * 4)
+layout(laymat)
+
+plot.new()
+mtext("Men in Small-Scale Societies",
+      side = 1,
+      line = -1)
+
+plot.new()
+mtext(
+  "Average Energy Expenditure (METs)",
+  side = 2,
+  line = -1,
+  srt = 90,
+  cex = .8
+)
+
+for (s in 1:8) {
+  plot(
+    Total_Energy ~ Prop_Work_CommE,
+    subset(mtap_id, SOC_CODE == SOC_dec[s]),
+    xlim = c(0, 1),
+    ylim = c(1 - .2, 3 + .2),
+    axes = F,
+    xlab = "",
+    ylab = "",
+    pch = 16,
+    col = alpha(cols_list[s], subset(mtap_id, SOC_CODE == SOC_dec[s])$transps)
+  )
+  text(.5, 3, labels = SOC_names[s])
+  if (s %in% 1:4)
+    axis(1,
+         at = seq(-1, 2, by = .2),
+         tcl = 0,
+         labels = F)
+  #below and above top row
+  if (s %in% 5:8)
+    axis(1, at = seq(-1, 2, by = .2), labels = xaxis_labels) #below bottom row
+  if (!(s %in% c(1, 5)))
+    axis(2,
+         at = seq(-1, 5, 1),
+         tcl = 0,
+         labels = F) #left of left
+  if (s %in% c(1, 5))
+    axis(2, at = seq(-1, 5, 1)) #left of rest
+  
+  clip(0, 1, -10, 110)
+  abline(coef = coef(hbregM_Energy_CommE)$SOC_CODE[which(rownames(coef(hbregM_Energy_CommE)$SOC_CODE[, , 1]) == SOC_dec[s]), "Estimate", ],
+         col = col_reg)
+  newx <- seq(0, 1, length.out = 101)
+  preds <-
+    fitted(
+      hbregM_Energy_CommE,
+      newdata = data.frame(
+        Prop_Work_CommE = newx,
+        SOC_CODE = SOC_dec[s],
+        AGE = rep(0, 101)
+      ),
+      probs = c(0.025, 0.975)
+    )
+  lines(newx, preds[, 3], lty = 'dashed', col = col_reg)
+  lines(newx, preds[, 4], lty = 'dashed', col = col_reg)
+}
+
+plot.new()
+mtext(
+  "Commercial Proportion of Work",
+  side = 1,
+  line = -0.5,
+  cex = .8
+)
+
+plot.new()
+mtext("Women in Small-Scale Societies",
+      side = 1,
+      line = -1)
+
+plot.new()
+mtext(
+  "Average Energy Expenditure (METs)",
+  side = 2,
+  line = -1,
+  srt = 90,
+  cex = .8
+)
+
+for (s in 1:8) {
+  plot(
+    Total_Energy ~ Prop_Work_CommE,
+    subset(ftap_id, SOC_CODE == SOC_dec[s]),
+    xlim = c(0, 1),
+    ylim = c(1 - .2, 3 + .2),
+    axes = F,
+    xlab = "",
+    ylab = "",
+    pch = 16,
+    col = alpha(cols_list[s], subset(ftap_id, SOC_CODE == SOC_dec[s])$transps)
+  )
+  text(.5, 3, labels = SOC_names[s])
+  if (s %in% 1:4)
+    axis(1,
+         at = seq(-1, 2, by = .2),
+         tcl = 0,
+         labels = F)
+  
+  if (s %in% 5:8)
+    axis(1, at = seq(-1, 2, by = .2), labels = xaxis_labels)
+  if (!(s %in% c(1, 5)))
+    axis(2,
+         at = seq(-1, 5, 1),
+         tcl = 0,
+         labels = F)
+  if (s %in% c(1, 5))
+    axis(2, at = seq(-1, 5, 1))
+  
+  clip(0, 1, -10, 110)
+  abline(coef = coef(hbregF_Energy_CommE)$SOC_CODE[which(rownames(coef(hbregF_Energy_CommE)$SOC_CODE[, , 1]) == SOC_dec[s]), "Estimate", ],
+         col = col_reg)
+  newx <- seq(0, 1, length.out = 101)
+  preds <-
+    fitted(
+      hbregF_Energy_CommE,
+      newdata = data.frame(
+        Prop_Work_CommE = newx,
+        SOC_CODE = SOC_dec[s],
+        AGE = rep(0, 101)
+      ),
+      probs = c(0.025, 0.975)
+    )
+  lines(newx, preds[, 3], lty = 'dashed', col = col_reg)
+  lines(newx, preds[, 4], lty = 'dashed', col = col_reg)
+}
+
+plot.new()
+mtext(
+  "Commercial Proportion of Work",
+  side = 1,
+  line = -0.5,
+  cex = .8
+)
+
+# - Society level
+
+#men
+bregM_Energy_CommE = brm(Total_Energy ~ Prop_Work_CommE,
+                         data = mtapoecd,
+                         cores = 3) #work ~ comm w/ E (EC)
+bregM_Energy_Comm = brm(Total_Energy ~ Prop_Work_Comm,
+                        data = mtapoecd,
+                        cores = 3) #work ~ comm w/o E (ENC)
+
+#women
+bregF_Energy_CommE = brm(Total_Energy ~ Prop_Work_CommE,
+                         data = ftapoecd,
+                         cores = 3) #work ~ comm w/ E (EC)
+bregF_Energy_Comm = brm(Total_Energy ~ Prop_Work_Comm,
+                        data = ftapoecd,
+                        cores = 3) #work ~ comm w/o E (ENC)
+
+#posterior p(slope > 0)
+#men
+mean(posterior_samples(bregM_Energy_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(bregM_Energy_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#women
+mean(posterior_samples(bregF_Energy_CommE, pars = "b_Prop_Work_CommE", exact_match = T) > 0)
+mean(posterior_samples(bregF_Energy_Comm, pars = "b_Prop_Work_Comm", exact_match = T) > 0)
+
+#bayesian R2
+#men
+bayes_R2(bregM_Energy_CommE)
+bayes_R2(bregM_Energy_Comm)
+
+#women
+bayes_R2(bregF_Energy_CommE)
+bayes_R2(bregF_Energy_Comm)
+
+#looic comparison
+#men
+b_looicM_Energy = loo(bregM_Energy_CommE,
+                      bregM_Energy_Comm,
+                      cores = 3,
+                      reloo = T)
+#women
+b_looicF_Energy = loo(bregF_Energy_CommE,
+                      bregF_Energy_Comm,
+                      cores = 3,
+                      reloo = T)
+
+#plotting energy against prop comm (EC)
+layout(matrix(1:2, ncol = 2))
+
+#men
+plot(
+  Total_Energy ~ Prop_Work_CommE,
+  data = mtapoecd,
+  xlim = c(0, 1),
+  xlab = "Commercial Proportion of Work",
+  ylab = "Average Energy Expenditure (METs)",
+  main = "Men",
+  bty = "l",
+  ylim = c(1.6, 2.4),
+  pch = 16,
+  col = c("black", "firebrick2")[scal]
+)
+newx <- seq(0, 1, length.out = 101)
+preds <-
+  fitted(
+    bregM_Energy_CommE,
+    newdata = data.frame(Prop_Work_CommE = newx),
+    interval = 'confidence',
+    probs = c(0.05, 0.95)
+  )
+# intervals
+lines(newx, preds[, 1])
+lines(newx, preds[, 3], lty = 'dashed')
+lines(newx, preds[, 4], lty = 'dashed')
+
+#women
+plot(
+  Total_Energy ~ Prop_Work_CommE,
+  data = ftapoecd,
+  xlim = c(0, 1),
+  xlab = "Commercial Proportion of Work",
+  ylab = "Average Energy Expenditure (METs)",
+  main = "Women",
+  bty = "l",
+  ylim = c(1.6, 2.4),
+  pch = 16,
+  col = c("black", "firebrick2")[scal]
+)
+newx <- seq(0, 1, length.out = 101)
+preds <-
+  fitted(
+    bregF_Energy_CommE,
+    newdata = data.frame(Prop_Work_CommE = newx),
+    interval = 'confidence',
+    probs = c(0.05, 0.95)
+  )
+# intervals
+lines(newx, preds[, 1])
+lines(newx, preds[, 3], lty = 'dashed')
+lines(newx, preds[, 4], lty = 'dashed')
+legend(
+  "bottomright",
+  fill = c("black", "firebrick2"),
+  title = "Societies",
+  legend = c("OECD", "Small-Scale"),
+  bty = "n"
+)
+```	
